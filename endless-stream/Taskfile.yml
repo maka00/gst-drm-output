@@ -1,0 +1,85 @@
+version: '3'
+vars:
+  VIDEO_DOWNLOAD_URL_HD: https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4
+  VIDEO_DOWNLOAD_URL_SD: https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4
+  VIDEO_DOWNLOAD_URL_FHD: https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/1080/Big_Buck_Bunny_1080_10s_1MB.mp4
+  VIDEO_DOWNLOAD_FULL_URL_FHD: https://download.blender.org/demo/movies/BBB/bbb_sunflower_1080p_30fps_normal.mp4.zip
+  VIDEO_PATH: '{{.VIDEO_PATH | default "/tmp/video.mp4"}}'
+  OUTPUT_PATH: '{{.OUTPUT_PATH | default "/dev/video10"}}'
+tasks:
+  getvideo-hd:
+    desc: "Get video in HD"
+    cmds:
+      - |
+        wget -O {{.VIDEO_PATH}} {{.VIDEO_DOWNLOAD_URL_HD}} 
+    silent: true
+
+  getvideo-sd:
+    desc: "Get video in SD"
+    cmds:
+      - |
+        wget -O {{.VIDEO_PATH}} {{.VIDEO_DOWNLOAD_URL_SD}} 
+    silent: true
+
+  getvideo-fhd:
+    desc: "Get video in FHD"
+    cmds:
+      - |
+        wget -O {{.VIDEO_PATH}} {{.VIDEO_DOWNLOAD_URL_FHD}} 
+    silent: true
+
+  getfull-fhd:
+    desc: "Get the full video in FHD"
+    cmds:
+      - |
+        wget -O {{.VIDEO_PATH}}.zip {{.VIDEO_DOWNLOAD_FULL_URL_FHD}} 
+        unzip {{.VIDEO_PATH}}.zip bbb_sunflower_1080p_30fps_normal.mp4 -d /tmp
+        mv /tmp/bbb_sunflower_1080p_30fps_normal.mp4 {{.VIDEO_PATH}}
+    silent: true
+
+  run:
+    desc: "Run stream"
+    cmds:
+      - |
+        export GST_DEBUG=3
+        python3 stream.py {{.VIDEO_PATH}} {{.OUTPUT_PATH}}
+    silent: true
+
+  install-v4l2loopback:
+    desc: "install install-v4l2loopback (temporary to /dev/video10)"
+    cmds:
+      - |
+        sudo modprobe v4l2loopback exclusive_caps=1 video_nr=10 card_label="v4l2loopback"
+  docker-build:
+    desc: "build docker"
+    cmds:
+      - |
+        docker build -t endless-stream-server:1.0 -f Dockerfile . 
+
+  docker-run:
+    desc: "run docker container"
+    cmds:
+      - |
+        docker run -d --rm \
+        -v /opt/data:/opt/data \
+        --device /dev/video10 \
+        --device /dev/video11 \
+        --name endless-stream-runner
+        endless-stream-server:1.0 
+
+  container-run:
+      desc: "run docker container"
+      cmds:
+        - |
+          python3 stream.py /opt/data/video.mp4 /dev/video10 & 
+          python3 stream.py /opt/data/video2.mp4 /dev/video11 
+
+
+  build:
+    desc: "setup venv"
+    cmds:
+      - |
+        python3 -m venv venv
+        source venv/bin/activate
+        pip install -r requirements.txt
+

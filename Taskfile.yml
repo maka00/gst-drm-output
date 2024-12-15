@@ -1,0 +1,83 @@
+# https://taskfile.dev
+
+version: '3'
+
+
+tasks:
+  overlay-server:
+    desc: "run overlay container"
+    cmds:
+      - | 
+        docker run --rm -d \
+        -p 3000:3000 \
+        --name orverlay-server \
+        recorder-overlay:1.0
+    silent: true
+  
+  endless-stream-server:
+    desc: "run endless-stream container"
+    cmds:
+      - |
+        docker run -d --rm \
+        -v /opt/data:/opt/data \
+        --device /dev/video10 \
+        --device /dev/video11 \
+        --name endless-stream-runner \
+        endless-stream-server:1.0 
+
+  run-interactive:
+    desc: "run interacively in the container"
+    cmds:
+      - |
+        docker run -it --rm \
+        -v $(pwd):/opt/app \
+        --privileged \
+        demo-app:1.0 \
+        /bin/bash
+    silent: true
+
+  run-docker:
+    desc: "run the container"
+    cmds:
+      - |
+        docker run -d --rm \
+        -v $(pwd):/opt/app \
+        --device=/dev/video10 \
+        --privileged \
+        --name demo-app-server \
+        demo-app:1.0 
+
+  run:
+    desc: "run application (inside docker)"
+    cmds:
+      - |
+        /bin/bash /opt/app/start.sh
+  build:
+    desc: "builds the container"
+    cmds:
+      - |
+        docker build -t demo-app:1.0 -f Dockerfile .
+
+  # Just my local setup to deploy to my NUC
+  transfer-base:
+    desc: "transfer container to target"
+    cmds:
+      - |
+        docker save -o demo-app.tar.gz demo-app:1.0
+        scp demo-app.tar.gz nuc:/home/dev/dev/output-stream/container/
+        ssh nuc "cd /home/dev/dev/output-stream/container ; docker load -i demo-app.tar.gz"
+  transfer-overlay:
+    desc: "transfer container to target"
+    cmds:
+      - |
+        docker save -o recorder-overlay.tar.gz recorder-overlay:1.0
+        scp recorder-overlay.tar.gz nuc:/home/dev/dev/output-stream/container/
+        ssh nuc "cd /home/dev/dev/output-stream/container ; docker load -i recorder-overlay.tar.gz"
+
+  transfer-endless-stream:
+    desc: "transfer container to target"
+    cmds:
+      - |
+        docker save -o endless-stream.tar.gz endless-stream-server:1.0
+        scp endless-stream.tar.gz nuc:/home/dev/dev/output-stream/container/
+        ssh nuc "cd /home/dev/dev/output-stream/container ; docker load -i endless-stream.tar.gz"
